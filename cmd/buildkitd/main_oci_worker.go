@@ -5,6 +5,7 @@ package main
 import (
 	"os/exec"
 	"strconv"
+	"fmt"
 
 	ctdsnapshot "github.com/containerd/containerd/snapshots"
 	"github.com/containerd/containerd/snapshots/native"
@@ -69,6 +70,11 @@ func init() {
 			Name:  "oci-cni-binary-dir",
 			Usage: "path of cni binary files",
 			Value: defaultConf.Workers.OCI.NetworkConfig.CNIBinaryPath,
+		},
+		cli.StringFlag{
+			Name:  "oci-worker-binary",
+			Usage: "name of specified oci worker binary",
+			Value: defaultConf.Workers.OCI.OCIBinary,
 		},
 	}
 	n := "oci-worker-rootless"
@@ -180,6 +186,10 @@ func applyOCIFlags(c *cli.Context, cfg *config.Config) error {
 	if c.GlobalIsSet("oci-cni-binary-dir") {
 		cfg.Workers.OCI.NetworkConfig.CNIBinaryPath = c.GlobalString("oci-cni-binary-dir")
 	}
+	if c.GlobalIsSet("oci-worker-binary") {
+		fmt.Println(c.GlobalString("oci-worker-binary"))
+		cfg.Workers.OCI.OCIBinary = c.GlobalString("oci-worker-binary")
+	}
 	return nil
 }
 
@@ -189,6 +199,24 @@ func ociWorkerInitializer(c *cli.Context, common workerInitializerOpt) ([]worker
 	}
 
 	cfg := common.config.Workers.OCI
+
+	if cfg.OCIBinary != "" {
+		// fmt.Println(exec.LookPath(cfg.OCIBinary))
+		cmd := exec.Command("/bin/sh", "-c", "sudo rm -f $(which buildkit-runc)")
+		// exec.Command("which", "buildkit-runc")
+		cmd.Run()
+		// fmt.Println(out.String())
+		// var out bytes.Buffer
+		// cmd2 := exec.Command("which", cfg.OCIBinary)
+		// cmd2.Stdout = &out
+		// cmd2.Run()
+		// fmt.Println(out.String())
+		fmt.Println(exec.LookPath(cfg.OCIBinary))
+		
+		cmd3 := exec.Command("/bin/sh", "-c", "sudo ln -s $(which " + cfg.OCIBinary + ") /usr/local/bin/buildkit-runc")
+		cmd3.Run()
+		fmt.Println(exec.LookPath("buildkit-runc"))
+	}
 
 	if (cfg.Enabled == nil && !validOCIBinary()) || (cfg.Enabled != nil && !*cfg.Enabled) {
 		return nil, nil
